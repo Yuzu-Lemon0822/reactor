@@ -205,13 +205,25 @@
                     </div>
                 </div>
 
+                <!-- 出力上限到達（キャップ）通知バナー -->
+                <div id="capAlert" class="hidden mb-4 bg-amber-950/80 border border-amber-500/70 text-amber-200 px-4 py-2.5 rounded-xl flex items-center gap-3">
+                    <svg class="w-5 h-5 text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <div class="text-xs">
+                        <span class="font-bold text-amber-300">サイズ上限による出力制限中（効率: <span id="capScalePct">100</span>%）：</span>
+                        理論発電量がサイズ最大発電量 (<span id="capMaxPowerText" class="font-semibold">0</span>) を超えているため、発電量・必要水量・必要燃料量が比例縮小されています。
+                    </div>
+                </div>
+
                 <!-- メイン指標グリッド -->
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
                     <!-- 発電量 -->
                     <div class="bg-slate-900/90 border border-slate-700/70 rounded-xl p-3.5">
-                        <div class="text-xs text-slate-400 mb-1">発電量 (p × 300)</div>
-                        <div id="statPowerGen" class="text-xl sm:text-2xl font-extrabold text-amber-400">0</div>
-                        <div class="text-[11px] text-slate-500 mt-0.5">EU/t (総火力 p: <span id="statTotalP" class="text-slate-300 font-semibold">0</span>)</div>
+                        <div class="text-xs text-slate-400 mb-1">実発電量 / 最大上限</div>
+                        <div class="flex items-baseline gap-1.5 flex-wrap">
+                            <span id="statPowerGen" class="text-xl sm:text-2xl font-extrabold text-amber-400">0</span>
+                            <span class="text-xs text-slate-400">/ <span id="statMaxPower">0</span></span>
+                        </div>
+                        <div class="text-[11px] text-slate-500 mt-0.5">理論値: <span id="statRawPower" class="text-slate-300">0</span> (火力 p: <span id="statTotalP" class="text-slate-300 font-semibold">0</span>)</div>
                     </div>
 
                     <!-- 冷却率 -->
@@ -223,14 +235,14 @@
 
                     <!-- 必要冷却水量 -->
                     <div class="bg-slate-900/90 border border-slate-700/70 rounded-xl p-3.5">
-                        <div class="text-xs text-slate-400 mb-1">必要冷却水量 (p × 1.5)</div>
+                        <div class="text-xs text-slate-400 mb-1">必要冷却水量</div>
                         <div id="statWaterReq" class="text-xl sm:text-2xl font-extrabold text-blue-400">0.0</div>
                         <div class="text-[11px] text-slate-500 mt-0.5">有効冷却剤: <span id="statActiveCoolant" class="text-slate-300 font-semibold">0</span> / <span id="statTotalCoolant">0</span>個</div>
                     </div>
 
                     <!-- 必要燃料量 -->
                     <div class="bg-slate-900/90 border border-slate-700/70 rounded-xl p-3.5">
-                        <div class="text-xs text-slate-400 mb-1">必要燃料量 (f × 0.6)</div>
+                        <div class="text-xs text-slate-400 mb-1">必要燃料量</div>
                         <div id="statFuelReq" class="text-xl sm:text-2xl font-extrabold text-green-400">0.0</div>
                         <div class="text-[11px] text-slate-500 mt-0.5">燃料数 f: <span id="statFuelCount" class="text-slate-300 font-semibold">0</span>個 (効率: <span id="statEfficiency">0.0</span> p/f)</div>
                     </div>
@@ -356,11 +368,13 @@
                     </ul>
                 </div>
                 <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-700/70">
-                    <p class="font-semibold text-amber-400 mb-1">■ 出力と消費リソース</p>
+                    <p class="font-semibold text-amber-400 mb-1">■ 出力・サイズ上限と消費リソース</p>
                     <ul class="list-disc list-inside text-xs space-y-1 text-slate-300">
-                        <li><strong>発電量</strong> = p × 300</li>
-                        <li><strong>必要冷却水量</strong> = p × 1.5</li>
-                        <li><strong>必要燃料量</strong> = f × 0.6 （f = 燃料の総数）</li>
+                        <li><strong>理論発電量</strong> = p × 300</li>
+                        <li><strong>サイズ最大発電量</strong> = 280 × (xy + yz + zx)</li>
+                        <li>理論発電量が最大発電量を超える場合、<strong>倍率 = 最大発電量 / 理論発電量</strong> となり、実発電量・必要冷却水量・必要燃料量がその倍率に比例してスケーリングされます。</li>
+                        <li><strong>基本必要冷却水量</strong> = p × 1.5 （上限超過時は比例縮小）</li>
+                        <li><strong>基本必要燃料量</strong> = f × 0.6 （上限超過時は比例縮小）</li>
                     </ul>
                 </div>
             </div>
@@ -441,7 +455,12 @@
             
             // ステータス表示
             meltdownAlert: document.getElementById('meltdownAlert'),
+            capAlert: document.getElementById('capAlert'),
+            capScalePct: document.getElementById('capScalePct'),
+            capMaxPowerText: document.getElementById('capMaxPowerText'),
             statPowerGen: document.getElementById('statPowerGen'),
+            statMaxPower: document.getElementById('statMaxPower'),
+            statRawPower: document.getElementById('statRawPower'),
             statTotalP: document.getElementById('statTotalP'),
             cardCoolingRatio: document.getElementById('cardCoolingRatio'),
             statCoolingRatio: document.getElementById('statCoolingRatio'),
@@ -583,9 +602,16 @@
             }
 
             const isMeltdown = coolingRatio > 1.000001; // 浮動小数点誤差考慮
-            const powerGen = totalPower * 300;
-            const waterReq = totalPower * 1.5;
-            const fuelReq = fuelCount * 0.6;
+            const rawPowerGen = totalPower * 300;
+            const maxPowerGen = 280 * (dimX * dimY + dimY * dimZ + dimZ * dimX);
+            
+            // 理論発電量が最大発電量を超える場合のスケーリング比率
+            const isCapped = rawPowerGen > maxPowerGen;
+            const scaleRatio = isCapped ? (maxPowerGen / rawPowerGen) : 1.0;
+
+            const powerGen = rawPowerGen * scaleRatio;
+            const waterReq = (totalPower * 1.5) * scaleRatio;
+            const fuelReq = (fuelCount * 0.6) * scaleRatio;
             const efficiency = fuelCount > 0 ? (totalPower / fuelCount) : 0;
 
             return {
@@ -598,6 +624,10 @@
                 totalCooling,
                 coolingRatio,
                 isMeltdown,
+                rawPowerGen,
+                maxPowerGen,
+                isCapped,
+                scaleRatio,
                 powerGen,
                 waterReq,
                 fuelReq,
@@ -647,24 +677,30 @@
             /**
              * 目的関数（スコア算出）
              * 冷却率 > 1.0 の場合は強力なペナルティを与え、安全な領域へ誘導する
+             * また、サイズ最大発電量(maxPowerGen)に達した後は、過剰なブロックや燃料を削減する方向へ誘導する
              */
             function calcScore(res) {
                 if (res.isMeltdown) {
                     // 超過分に応じたペナルティ（まずはメルトダウン解消を最優先させる）
                     const excess = res.totalPower - res.totalCooling;
-                    return -100000 - (excess * 500);
+                    return -1000000 - (excess * 5000);
                 }
-                if (res.fuelCount === 0) return -50000;
+                if (res.fuelCount === 0) return -500000;
+
+                const inactiveCoolants = res.totalCoolant - res.activeCoolant;
+                const usedBlocks = res.fuelCount + res.graphiteCount + res.totalCoolant;
+                // 上限超過分のペナルティ（上限に達しているなら、それ以上燃料を増やしても発電量が増えないため削減を促す）
+                const overCapPenalty = res.isCapped ? (res.rawPowerGen - res.maxPowerGen) * 0.5 : 0;
 
                 if (goal === 'max_power') {
-                    // 総火力 P の最大化（同点ならグラファイト/冷却剤が無駄に少なく効率が良い方を優先）
-                    return res.totalPower * 1000 + res.efficiency * 10 - (res.totalCoolant - res.activeCoolant) * 5;
+                    // 実発電量の最大化。上限到達後は少ない燃料・少ない資材で同じ上限出力を出せる配置を優先
+                    return res.powerGen * 100 - overCapPenalty - res.fuelCount * 15 - usedBlocks * 2 - inactiveCoolants * 20;
                 } else if (goal === 'fuel_efficiency') {
-                    // 1燃料あたりの火力効率 (P/f) の最大化 ＋ 一定の総火力も確保
-                    return res.efficiency * 5000 + res.totalPower * 50 - (res.totalCoolant - res.activeCoolant) * 10;
+                    // 1燃料あたりの火力効率 (P/f) の最大化 ＋ 実発電量も確保
+                    return res.efficiency * 50000 + res.powerGen * 5 - overCapPenalty - inactiveCoolants * 30;
                 } else {
-                    // バランス型（総火力と効率の両立）
-                    return res.totalPower * 600 + res.efficiency * 2500 - (res.totalCoolant - res.activeCoolant) * 10;
+                    // バランス型（高出力と燃料効率の両立）
+                    return res.powerGen * 60 + res.efficiency * 25000 - overCapPenalty - res.fuelCount * 10 - inactiveCoolants * 25;
                 }
             }
 
@@ -744,7 +780,7 @@
                 // プログレスバー更新
                 const pct = Math.round((step / totalIterations) * 100);
                 el.progressBar.style.width = `${pct}%`;
-                el.progressText.textContent = `探索中... ${pct}% (現在の最高発電量: ${bestEval.isMeltdown ? 0 : bestEval.powerGen.toLocaleString()})`;
+                el.progressText.textContent = `探索中... ${pct}% (最高実発電量: ${bestEval.isMeltdown ? 0 : Math.round(bestEval.powerGen).toLocaleString()} / 上限 ${bestEval.maxPowerGen.toLocaleString()})`;
 
                 if (step < totalIterations) {
                     requestAnimationFrame(processChunk);
@@ -752,7 +788,7 @@
                     // 探索完了処理
                     if (!bestEval.isMeltdown) {
                         state.grid.set(bestGrid);
-                        showToast(`最適配置が見つかりました！(発電量: ${bestEval.powerGen.toLocaleString()})`);
+                        showToast(`最適配置が見つかりました！(実発電量: ${Math.round(bestEval.powerGen).toLocaleString()})`);
                     } else {
                         state.grid.set(currentGrid);
                         showToast('安全な配置が見つかりませんでした。試行回数を増やして再試行してください。', true);
@@ -780,7 +816,9 @@
             const evalRes = evaluateReactor(state.grid, state.dimX, state.dimY, state.dimZ);
 
             // 数値ステータスの更新
-            el.statPowerGen.textContent = evalRes.powerGen.toLocaleString();
+            el.statPowerGen.textContent = Math.round(evalRes.powerGen).toLocaleString();
+            el.statMaxPower.textContent = evalRes.maxPowerGen.toLocaleString();
+            el.statRawPower.textContent = evalRes.rawPowerGen.toLocaleString();
             el.statTotalP.textContent = evalRes.totalPower.toLocaleString();
             
             el.statCoolingRatio.textContent = evalRes.coolingRatio === Infinity ? '∞' : evalRes.coolingRatio.toFixed(2);
@@ -812,6 +850,15 @@
                 el.cardCoolingRatio.classList.remove('border-rose-500', 'bg-rose-950/40');
                 el.statCoolingRatio.classList.remove('text-rose-500');
                 el.statCoolingRatio.classList.add('text-cyan-400');
+            }
+
+            // 出力上限（キャップ）バナーの表示制御
+            if (evalRes.isCapped && !evalRes.isMeltdown) {
+                el.capAlert.classList.remove('hidden');
+                el.capScalePct.textContent = (evalRes.scaleRatio * 100).toFixed(1);
+                el.capMaxPowerText.textContent = evalRes.maxPowerGen.toLocaleString();
+            } else {
+                el.capAlert.classList.add('hidden');
             }
 
             // レイヤーナビゲーションの表示制御
