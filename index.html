@@ -1,0 +1,1175 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bloxd Factory 2 リアクター最適配置シミュレーター</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter & Noto Sans JP -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', 'Noto Sans JP', sans-serif;
+            background-color: #0f172a; /* slate-900 */
+            color: #f8fafc; /* slate-50 */
+        }
+        /* カスタムスクロールバー */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+        /* ブロックのスタイルとアニメーション */
+        .block-cell {
+            transition: transform 0.1s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .block-cell:hover {
+            transform: scale(1.05);
+            z-index: 10;
+        }
+        .block-cell:active {
+            transform: scale(0.95);
+        }
+        /* 各ブロックタイプの色定義 */
+        .type-air {
+            background-color: #1e293b; /* 空白(slate-800) */
+            border: 1px dashed #334155;
+        }
+        .type-graphite {
+            background-color: #090d16; /* 黒(ほぼ真っ黒なダークカラー) */
+            border: 1px solid #334155;
+            box-shadow: inset 0 0 8px rgba(255, 255, 255, 0.08);
+        }
+        .type-fuel {
+            background-color: #16a34a; /* 緑(green-600) */
+            border: 1px solid #4ade80;
+            box-shadow: 0 0 10px rgba(34, 197, 94, 0.3);
+        }
+        .type-coolant {
+            background-color: #06b6d4; /* 水色(cyan-500) */
+            border: 1px solid #67e8f9;
+            box-shadow: 0 0 10px rgba(6, 182, 212, 0.3);
+        }
+        /* 無効な冷却剤の警告表示 */
+        .coolant-inactive {
+            opacity: 0.45;
+            border-style: dashed;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- ヘッダー -->
+    <header class="bg-slate-800/80 backdrop-blur-md border-b border-slate-700 sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-cyan-500 flex items-center justify-center font-bold text-slate-900 shadow-lg">
+                    F2
+                </div>
+                <div>
+                    <h1 class="text-lg sm:text-xl font-bold tracking-tight text-white">Bloxd Factory 2 リアクター設計＆最適化</h1>
+                    <p class="text-xs text-slate-400 hidden sm:block">3D配置シミュレーター & 焼きなまし法(SA)自動探索エンジン</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button id="btnRules" class="px-3 py-1.5 text-xs font-medium bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg transition">
+                    計算仕様を確認
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- メインコンテンツ -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- 左カラム：設定 & 探索コントロール (4カラム) -->
+        <div class="lg:col-span-4 flex flex-col gap-5">
+            
+            <!-- 1. リアクターサイズ設定 -->
+            <section class="bg-slate-800/60 border border-slate-700/80 rounded-2xl p-5 shadow-xl">
+                <h2 class="text-sm font-bold uppercase tracking-wider text-slate-300 mb-4 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+                    1. リアクターサイズ (2〜10)
+                </h2>
+                <div class="grid grid-cols-3 gap-3 mb-4">
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">幅 (X)</label>
+                        <input type="number" id="inputX" min="2" max="10" value="5" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-center font-bold text-white focus:outline-none focus:border-cyan-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">高さ (Y/層)</label>
+                        <input type="number" id="inputY" min="2" max="10" value="4" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-center font-bold text-white focus:outline-none focus:border-cyan-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">奥行 (Z)</label>
+                        <input type="number" id="inputZ" min="2" max="10" value="5" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-center font-bold text-white focus:outline-none focus:border-cyan-500">
+                    </div>
+                </div>
+                <div class="flex gap-2">
+                    <button id="btnResize" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-semibold py-2 px-4 rounded-xl text-sm transition">
+                        サイズ適用 (クリア)
+                    </button>
+                    <button id="btnClear" class="bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 border border-rose-800/50 font-semibold py-2 px-3 rounded-xl text-sm transition" title="すべて空気にする">
+                        全消去
+                    </button>
+                </div>
+            </section>
+
+            <!-- 2. 自動最適探索エンジン -->
+            <section class="bg-slate-800/60 border border-slate-700/80 rounded-2xl p-5 shadow-xl">
+                <h2 class="text-sm font-bold uppercase tracking-wider text-slate-300 mb-4 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-green-400"></span>
+                    2. 最適配置の自動探索
+                </h2>
+
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1.5">最適化の目的</label>
+                        <select id="optGoal" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-green-500">
+                            <option value="max_power">最大発電量 (総火力 P の最大化)</option>
+                            <option value="fuel_efficiency">燃料効率重視 (1燃料あたりの火力 P/f 最大化)</option>
+                            <option value="balanced">バランス型 (高出力 ＋ 燃料節約)</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="text-slate-400">探索の試行回数 (精度)</span>
+                            <span id="iterLabel" class="font-bold text-green-400">30,000 回</span>
+                        </div>
+                        <input type="range" id="optIterations" min="5000" max="100000" step="5000" value="30000" class="w-full accent-green-500 cursor-pointer">
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <input type="checkbox" id="optKeepCurrent" class="w-4 h-4 rounded accent-green-500 bg-slate-900 border-slate-700">
+                        <label for="optKeepCurrent" class="text-xs text-slate-300 cursor-pointer">現在の配置をベースに改良する</label>
+                    </div>
+
+                    <button id="btnOptimize" class="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-green-950/50 transition flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                        <span id="btnOptimizeText">最適配置を探索する</span>
+                    </button>
+
+                    <!-- 探索プログレスバー -->
+                    <div id="progressContainer" class="hidden space-y-1">
+                        <div class="w-full bg-slate-900 rounded-full h-2 overflow-hidden">
+                            <div id="progressBar" class="bg-green-500 h-2 rounded-full transition-all duration-75" style="width: 0%"></div>
+                        </div>
+                        <p id="progressText" class="text-[11px] text-center text-slate-400">探索中... 0%</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 3. インポート / エクスポート -->
+            <section class="bg-slate-800/60 border border-slate-700/80 rounded-2xl p-5 shadow-xl">
+                <h2 class="text-sm font-bold uppercase tracking-wider text-slate-300 mb-3 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-purple-400"></span>
+                    3. 配置データの共有・保存
+                </h2>
+                <div class="flex gap-2">
+                    <button id="btnExport" class="flex-1 bg-slate-700 hover:bg-slate-600 text-xs font-semibold py-2 px-3 rounded-xl transition">
+                        配置コードをコピー
+                    </button>
+                    <button id="btnImportOpen" class="flex-1 bg-slate-700 hover:bg-slate-600 text-xs font-semibold py-2 px-3 rounded-xl transition">
+                        コードから読込
+                    </button>
+                </div>
+            </section>
+
+        </div>
+
+        <!-- 右カラム：ステータス＆レイヤービジュアライザー (8カラム) -->
+        <div class="lg:col-span-8 flex flex-col gap-5">
+
+            <!-- リアルタイム計算ステータスダッシュボード -->
+            <section class="bg-slate-800/80 border border-slate-700 rounded-2xl p-5 shadow-xl">
+                <!-- メルトダウン警告バナー -->
+                <div id="meltdownAlert" class="hidden mb-4 bg-rose-950/90 border border-rose-500 text-rose-200 px-4 py-3 rounded-xl flex items-center gap-3 animate-pulse">
+                    <svg class="w-6 h-6 text-rose-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                    <div>
+                        <p class="font-bold text-sm">危険：メルトダウン状態（冷却率 > 1.00）</p>
+                        <p class="text-xs text-rose-300">総火力(p)に対して総冷却力(c)が不足しています。冷却剤を増やすか燃料に隣接させてください。</p>
+                    </div>
+                </div>
+
+                <!-- メイン指標グリッド -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                    <!-- 発電量 -->
+                    <div class="bg-slate-900/90 border border-slate-700/70 rounded-xl p-3.5">
+                        <div class="text-xs text-slate-400 mb-1">発電量 (p × 300)</div>
+                        <div id="statPowerGen" class="text-xl sm:text-2xl font-extrabold text-amber-400">0</div>
+                        <div class="text-[11px] text-slate-500 mt-0.5">EU/t (総火力 p: <span id="statTotalP" class="text-slate-300 font-semibold">0</span>)</div>
+                    </div>
+
+                    <!-- 冷却率 -->
+                    <div id="cardCoolingRatio" class="bg-slate-900/90 border border-slate-700/70 rounded-xl p-3.5 transition-colors">
+                        <div class="text-xs text-slate-400 mb-1">冷却率 (p / c)</div>
+                        <div id="statCoolingRatio" class="text-xl sm:text-2xl font-extrabold text-cyan-400">0.00</div>
+                        <div class="text-[11px] text-slate-500 mt-0.5">総冷却力 c: <span id="statTotalC" class="text-slate-300 font-semibold">0</span> (上限 1.00)</div>
+                    </div>
+
+                    <!-- 必要冷却水量 -->
+                    <div class="bg-slate-900/90 border border-slate-700/70 rounded-xl p-3.5">
+                        <div class="text-xs text-slate-400 mb-1">必要冷却水量 (p × 1.5)</div>
+                        <div id="statWaterReq" class="text-xl sm:text-2xl font-extrabold text-blue-400">0.0</div>
+                        <div class="text-[11px] text-slate-500 mt-0.5">有効冷却剤: <span id="statActiveCoolant" class="text-slate-300 font-semibold">0</span> / <span id="statTotalCoolant">0</span>個</div>
+                    </div>
+
+                    <!-- 必要燃料量 -->
+                    <div class="bg-slate-900/90 border border-slate-700/70 rounded-xl p-3.5">
+                        <div class="text-xs text-slate-400 mb-1">必要燃料量 (f × 0.6)</div>
+                        <div id="statFuelReq" class="text-xl sm:text-2xl font-extrabold text-green-400">0.0</div>
+                        <div class="text-[11px] text-slate-500 mt-0.5">燃料数 f: <span id="statFuelCount" class="text-slate-300 font-semibold">0</span>個 (効率: <span id="statEfficiency">0.0</span> p/f)</div>
+                    </div>
+                </div>
+
+                <!-- ブロック構成内訳バー -->
+                <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400 pt-2 border-t border-slate-700/60">
+                    <div class="flex flex-wrap items-center gap-4">
+                        <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm type-fuel inline-block"></span>燃料: <strong id="countFuel" class="text-white">0</strong></span>
+                        <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm type-graphite inline-block"></span>グラファイト: <strong id="countGraphite" class="text-white">0</strong></span>
+                        <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm type-coolant inline-block"></span>冷却剤: <strong id="countCoolant" class="text-white">0</strong></span>
+                        <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm type-air inline-block"></span>空気(空白): <strong id="countAir" class="text-white">0</strong></span>
+                    </div>
+                    <div>
+                        総ブロック数: <strong id="countTotal" class="text-slate-200">0</strong>
+                    </div>
+                </div>
+            </section>
+
+            <!-- レイヤービジュアライザー & 手動エディタ -->
+            <section class="bg-slate-800/60 border border-slate-700/80 rounded-2xl p-5 shadow-xl flex-1 flex flex-col">
+                
+                <!-- ツールバー（ブラシ選択 & 表示モード切替） -->
+                <div class="flex flex-wrap items-center justify-between gap-4 pb-4 mb-4 border-b border-slate-700/80">
+                    <!-- 配置ブロック選択パレット -->
+                    <div class="flex flex-wrap items-center gap-1.5">
+                        <span class="text-xs text-slate-400 mr-1">配置ブラシ:</span>
+                        <button data-brush="1" class="brush-btn active ring-2 ring-white bg-slate-900 hover:bg-slate-800 px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition">
+                            <span class="w-3.5 h-3.5 rounded-sm type-fuel inline-block"></span>燃料
+                        </button>
+                        <button data-brush="2" class="brush-btn bg-slate-900 hover:bg-slate-800 px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition">
+                            <span class="w-3.5 h-3.5 rounded-sm type-graphite inline-block"></span>グラファイト
+                        </button>
+                        <button data-brush="3" class="brush-btn bg-slate-900 hover:bg-slate-800 px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition">
+                            <span class="w-3.5 h-3.5 rounded-sm type-coolant inline-block"></span>冷却剤
+                        </button>
+                        <button data-brush="0" class="brush-btn bg-slate-900 hover:bg-slate-800 px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition">
+                            <span class="w-3.5 h-3.5 rounded-sm type-air inline-block"></span>空気(空白)
+                        </button>
+                    </div>
+
+                    <!-- 表示モード切替 -->
+                    <div class="flex items-center gap-2">
+                        <button id="btnToggleView" class="bg-slate-700 hover:bg-slate-600 text-xs font-semibold px-3 py-1.5 rounded-xl transition flex items-center gap-1.5">
+                            <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+                            <span id="viewModeText">全レイヤー一覧表示</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- レイヤー操作ナビゲーション（単一レイヤー表示時） -->
+                <div id="singleLayerNav" class="flex items-center justify-between bg-slate-900/80 p-3 rounded-xl mb-4 border border-slate-700/60">
+                    <button id="btnPrevLayer" class="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 disabled:opacity-30 transition">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                    </button>
+                    <div class="text-center">
+                        <span class="text-sm font-bold text-white">レイヤー (Y階層): <span id="currentLayerDisplay" class="text-cyan-400 text-lg">1</span> / <span id="maxLayerDisplay">4</span></span>
+                        <p class="text-[11px] text-slate-400">マスをクリックまたはドラッグしてブロックを配置（右クリックで空気消去）</p>
+                    </div>
+                    <button id="btnNextLayer" class="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 disabled:opacity-30 transition">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                    </button>
+                </div>
+
+                <!-- レイヤーコピー・ユーティリティ -->
+                <div id="layerActions" class="flex flex-wrap items-center justify-end gap-2 mb-3">
+                    <button id="btnCopyFromBelow" class="text-xs bg-slate-700/70 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-lg transition">
+                        下の層をコピー
+                    </button>
+                    <button id="btnApplyToAllLayers" class="text-xs bg-slate-700/70 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-lg transition">
+                        この層を全階層に適用
+                    </button>
+                </div>
+
+                <!-- グリッド描画コンテナ -->
+                <div id="gridContainer" class="flex-1 flex items-center justify-center overflow-auto p-2 min-h-[300px]">
+                    <!-- JavaScriptでここにグリッドが生成されます -->
+                </div>
+
+                <!-- 凡例・見方ガイド -->
+                <div class="mt-4 pt-3 border-t border-slate-700/60 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400">
+                    <div class="flex flex-wrap items-center gap-3">
+                        <span>※ 緑マス内の数字：その燃料が発生させている単体火力 (+2 〜 +8)</span>
+                        <span>※ 半透明の水色マス：燃料に隣接していない無効冷却剤 (+0)</span>
+                    </div>
+                    <div>
+                        隣接判定：上下左右前後の6方向
+                    </div>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- カスタム通知トースト -->
+    <div id="toast" class="fixed bottom-5 right-5 bg-slate-800 border border-slate-600 text-white px-4 py-3 rounded-xl shadow-2xl transform translate-y-20 opacity-0 transition-all duration-300 z-50 text-sm font-medium flex items-center gap-2">
+        <span id="toastIcon" class="w-2.5 h-2.5 rounded-full bg-green-400"></span>
+        <span id="toastMessage">メッセージ</span>
+    </div>
+
+    <!-- モーダル：計算仕様確認 -->
+    <div id="modalRules" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-lg w-full p-6 shadow-2xl">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-white">Bloxd Factory 2 リアクター計算仕様</h3>
+                <button id="closeRules" class="text-slate-400 hover:text-white p-1">✕</button>
+            </div>
+            <div class="space-y-3 text-sm text-slate-300 leading-relaxed">
+                <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-700/70">
+                    <p class="font-semibold text-green-400 mb-1">■ 火力 (p) の計算</p>
+                    <ul class="list-disc list-inside text-xs space-y-1 text-slate-300">
+                        <li><strong>燃料</strong>はどこに置いても基本火力 <strong>+2</strong> を発生させます。</li>
+                        <li><strong>グラファイト</strong>または<strong>燃料</strong>は、上下左右前後の6方向に隣接する燃料の火力を <strong>+1</strong> します（重複加算あり）。</li>
+                        <li>つまり、燃料1個あたりの最大火力は 2 + 6 = <strong>8</strong> になります。</li>
+                    </ul>
+                </div>
+                <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-700/70">
+                    <p class="font-semibold text-cyan-400 mb-1">■ 冷却力 (c) とメルトダウン条件</p>
+                    <ul class="list-disc list-inside text-xs space-y-1 text-slate-300">
+                        <li><strong>燃料に1つでも隣接している冷却剤</strong>を「有効冷却剤」とします。</li>
+                        <li>有効冷却剤は1個につき冷却力を <strong>+4</strong> します（燃料に隣接していない冷却剤は +0）。</li>
+                        <li><strong>冷却率 = p / c</strong> が <strong>1.00 を超えるとメルトダウン</strong>します（p ≤ c が必須条件）。</li>
+                    </ul>
+                </div>
+                <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-700/70">
+                    <p class="font-semibold text-amber-400 mb-1">■ 出力と消費リソース</p>
+                    <ul class="list-disc list-inside text-xs space-y-1 text-slate-300">
+                        <li><strong>発電量</strong> = p × 300</li>
+                        <li><strong>必要冷却水量</strong> = p × 1.5</li>
+                        <li><strong>必要燃料量</strong> = f × 0.6 （f = 燃料の総数）</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="mt-5 text-right">
+                <button id="closeRulesBtn" class="bg-cyan-600 hover:bg-cyan-500 text-white font-semibold px-4 py-2 rounded-xl text-sm transition">
+                    閉じる
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- モーダル：インポート -->
+    <div id="modalImport" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl">
+            <h3 class="text-lg font-bold text-white mb-2">配置コードの読み込み</h3>
+            <p class="text-xs text-slate-400 mb-3">エクスポートした配置文字列を貼り付けてください。</p>
+            <textarea id="importTextarea" rows="4" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs font-mono text-slate-200 focus:outline-none focus:border-cyan-500" placeholder='例: {"x":5,"y":4,"z":5,"data":"..."}'></textarea>
+            <div class="flex justify-end gap-2 mt-4">
+                <button id="closeImportBtn" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-4 py-2 rounded-xl text-xs font-semibold transition">キャンセル</button>
+                <button id="execImportBtn" class="bg-cyan-600 hover:bg-cyan-500 text-white px-4 py-2 rounded-xl text-xs font-semibold transition">読み込む</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * Bloxd Factory 2 リアクター最適配置シミュレーター
+         * ブロック定数定義:
+         * 0: 空気 (Air)
+         * 1: 燃料 (Fuel)
+         * 2: グラファイト (Graphite)
+         * 3: 冷却剤 (Coolant)
+         */
+        const BLOCK = {
+            AIR: 0,
+            FUEL: 1,
+            GRAPHITE: 2,
+            COOLANT: 3
+        };
+
+        // アプリケーション状態
+        const state = {
+            dimX: 5,
+            dimY: 4, // レイヤー（高さ）
+            dimZ: 5,
+            grid: null, // Uint8Array (size = dimX * dimY * dimZ)
+            currentLayer: 0, // 0 to dimY - 1
+            selectedBrush: BLOCK.FUEL,
+            viewAllLayers: false,
+            isMouseDown: false,
+            isRightClick: false,
+            isOptimizing: false
+        };
+
+        // 6方向の隣接オフセット [dx, dy, dz]
+        const DIRS = [
+            [1, 0, 0], [-1, 0, 0],
+            [0, 1, 0], [0, -1, 0],
+            [0, 0, 1], [0, 0, -1]
+        ];
+
+        // DOM要素キャッシュ
+        const el = {
+            inputX: document.getElementById('inputX'),
+            inputY: document.getElementById('inputY'),
+            inputZ: document.getElementById('inputZ'),
+            btnResize: document.getElementById('btnResize'),
+            btnClear: document.getElementById('btnClear'),
+            optGoal: document.getElementById('optGoal'),
+            optIterations: document.getElementById('optIterations'),
+            iterLabel: document.getElementById('iterLabel'),
+            optKeepCurrent: document.getElementById('optKeepCurrent'),
+            btnOptimize: document.getElementById('btnOptimize'),
+            btnOptimizeText: document.getElementById('btnOptimizeText'),
+            progressContainer: document.getElementById('progressContainer'),
+            progressBar: document.getElementById('progressBar'),
+            progressText: document.getElementById('progressText'),
+            
+            // ステータス表示
+            meltdownAlert: document.getElementById('meltdownAlert'),
+            statPowerGen: document.getElementById('statPowerGen'),
+            statTotalP: document.getElementById('statTotalP'),
+            cardCoolingRatio: document.getElementById('cardCoolingRatio'),
+            statCoolingRatio: document.getElementById('statCoolingRatio'),
+            statTotalC: document.getElementById('statTotalC'),
+            statWaterReq: document.getElementById('statWaterReq'),
+            statActiveCoolant: document.getElementById('statActiveCoolant'),
+            statTotalCoolant: document.getElementById('statTotalCoolant'),
+            statFuelReq: document.getElementById('statFuelReq'),
+            statFuelCount: document.getElementById('statFuelCount'),
+            statEfficiency: document.getElementById('statEfficiency'),
+            
+            countFuel: document.getElementById('countFuel'),
+            countGraphite: document.getElementById('countGraphite'),
+            countCoolant: document.getElementById('countCoolant'),
+            countAir: document.getElementById('countAir'),
+            countTotal: document.getElementById('countTotal'),
+
+            // グリッド・レイヤー操作
+            gridContainer: document.getElementById('gridContainer'),
+            singleLayerNav: document.getElementById('singleLayerNav'),
+            layerActions: document.getElementById('layerActions'),
+            currentLayerDisplay: document.getElementById('currentLayerDisplay'),
+            maxLayerDisplay: document.getElementById('maxLayerDisplay'),
+            btnPrevLayer: document.getElementById('btnPrevLayer'),
+            btnNextLayer: document.getElementById('btnNextLayer'),
+            btnToggleView: document.getElementById('btnToggleView'),
+            viewModeText: document.getElementById('viewModeText'),
+            btnCopyFromBelow: document.getElementById('btnCopyFromBelow'),
+            btnApplyToAllLayers: document.getElementById('btnApplyToAllLayers'),
+
+            // モーダル・共有
+            btnRules: document.getElementById('btnRules'),
+            modalRules: document.getElementById('modalRules'),
+            closeRules: document.getElementById('closeRules'),
+            closeRulesBtn: document.getElementById('closeRulesBtn'),
+            btnExport: document.getElementById('btnExport'),
+            btnImportOpen: document.getElementById('btnImportOpen'),
+            modalImport: document.getElementById('modalImport'),
+            importTextarea: document.getElementById('importTextarea'),
+            closeImportBtn: document.getElementById('closeImportBtn'),
+            execImportBtn: document.getElementById('execImportBtn'),
+            toast: document.getElementById('toast'),
+            toastMessage: document.getElementById('toastMessage')
+        };
+
+        /**
+         * 座標 (x, y, z) から 1次元配列のインデックスを取得
+         */
+        function getIndex(x, y, z, dimX = state.dimX, dimZ = state.dimZ) {
+            return (y * dimZ + z) * dimX + x;
+        }
+
+        /**
+         * グリッド初期化
+         */
+        function initGrid(x, y, z) {
+            state.dimX = Math.max(2, Math.min(10, parseInt(x) || 5));
+            state.dimY = Math.max(2, Math.min(10, parseInt(y) || 4));
+            state.dimZ = Math.max(2, Math.min(10, parseInt(z) || 5));
+            
+            el.inputX.value = state.dimX;
+            el.inputY.value = state.dimY;
+            el.inputZ.value = state.dimZ;
+
+            state.grid = new Uint8Array(state.dimX * state.dimY * state.dimZ);
+            state.currentLayer = 0;
+            updateUI();
+        }
+
+        /**
+         * リアクターの物理計算エンジン
+         * 仕様:
+         * - 燃料(1): 基本火力 +2、隣接する燃料(1)またはグラファイト(2)ごとに +1
+         * - 冷却剤(3): 隣接する燃料(1)が1つでもあれば有効冷却剤となり冷却力 +4
+         */
+        function evaluateReactor(grid, dimX, dimY, dimZ) {
+            let fuelCount = 0;      // f
+            let totalPower = 0;     // p
+            let totalCooling = 0;   // c
+            let activeCoolant = 0;
+            let totalCoolant = 0;
+            let graphiteCount = 0;
+            let airCount = 0;
+
+            // 各セルの個別詳細（ビジュアライズ表示用）
+            const cellDetails = new Int8Array(grid.length);
+
+            for (let y = 0; y < dimY; y++) {
+                for (let z = 0; z < dimZ; z++) {
+                    for (let x = 0; x < dimX; x++) {
+                        const idx = (y * dimZ + z) * dimX + x;
+                        const type = grid[idx];
+
+                        if (type === BLOCK.AIR) {
+                            airCount++;
+                        } else if (type === BLOCK.GRAPHITE) {
+                            graphiteCount++;
+                        } else if (type === BLOCK.FUEL) {
+                            fuelCount++;
+                            let cellPower = 2; // 燃料の基本火力 +2
+
+                            // 6方向の隣接チェック
+                            if (x > 0) { const n = grid[idx - 1]; if (n === BLOCK.FUEL || n === BLOCK.GRAPHITE) cellPower++; }
+                            if (x < dimX - 1) { const n = grid[idx + 1]; if (n === BLOCK.FUEL || n === BLOCK.GRAPHITE) cellPower++; }
+                            if (z > 0) { const n = grid[idx - dimX]; if (n === BLOCK.FUEL || n === BLOCK.GRAPHITE) cellPower++; }
+                            if (z < dimZ - 1) { const n = grid[idx + dimX]; if (n === BLOCK.FUEL || n === BLOCK.GRAPHITE) cellPower++; }
+                            if (y > 0) { const n = grid[idx - dimX * dimZ]; if (n === BLOCK.FUEL || n === BLOCK.GRAPHITE) cellPower++; }
+                            if (y < dimY - 1) { const n = grid[idx + dimX * dimZ]; if (n === BLOCK.FUEL || n === BLOCK.GRAPHITE) cellPower++; }
+
+                            totalPower += cellPower;
+                            cellDetails[idx] = cellPower;
+                        } else if (type === BLOCK.COOLANT) {
+                            totalCoolant++;
+                            let isAdjacentToFuel = false;
+
+                            if (x > 0 && grid[idx - 1] === BLOCK.FUEL) isAdjacentToFuel = true;
+                            else if (x < dimX - 1 && grid[idx + 1] === BLOCK.FUEL) isAdjacentToFuel = true;
+                            else if (z > 0 && grid[idx - dimX] === BLOCK.FUEL) isAdjacentToFuel = true;
+                            else if (z < dimZ - 1 && grid[idx + dimX] === BLOCK.FUEL) isAdjacentToFuel = true;
+                            else if (y > 0 && grid[idx - dimX * dimZ] === BLOCK.FUEL) isAdjacentToFuel = true;
+                            else if (y < dimY - 1 && grid[idx + dimX * dimZ] === BLOCK.FUEL) isAdjacentToFuel = true;
+
+                            if (isAdjacentToFuel) {
+                                activeCoolant++;
+                                totalCooling += 4;
+                                cellDetails[idx] = 1; // 有効冷却剤フラグ
+                            } else {
+                                cellDetails[idx] = 0; // 無効冷却剤フラグ
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 冷却率の算出 (c=0 かつ p>0 の場合は無限大＝メルトダウン)
+            let coolingRatio = 0;
+            if (totalPower > 0) {
+                coolingRatio = totalCooling === 0 ? Infinity : (totalPower / totalCooling);
+            }
+
+            const isMeltdown = coolingRatio > 1.000001; // 浮動小数点誤差考慮
+            const powerGen = totalPower * 300;
+            const waterReq = totalPower * 1.5;
+            const fuelReq = fuelCount * 0.6;
+            const efficiency = fuelCount > 0 ? (totalPower / fuelCount) : 0;
+
+            return {
+                fuelCount,
+                graphiteCount,
+                totalCoolant,
+                activeCoolant,
+                airCount,
+                totalPower,
+                totalCooling,
+                coolingRatio,
+                isMeltdown,
+                powerGen,
+                waterReq,
+                fuelReq,
+                efficiency,
+                cellDetails
+            };
+        }
+
+        /**
+         * 焼きなまし法 (Simulated Annealing) による最適配置探索
+         * UIがフリーズしないようチャンク分割して非同期実行する
+         */
+        function runOptimization() {
+            if (state.isOptimizing) return;
+            state.isOptimizing = true;
+
+            const dimX = state.dimX;
+            const dimY = state.dimY;
+            const dimZ = state.dimZ;
+            const totalCells = dimX * dimY * dimZ;
+            const totalIterations = parseInt(el.optIterations.value);
+            const goal = el.optGoal.value;
+            const keepCurrent = el.optKeepCurrent.checked;
+
+            // UIロックとプログレス表示
+            el.btnOptimize.disabled = true;
+            el.btnOptimize.classList.add('opacity-70', 'cursor-not-allowed');
+            el.btnOptimizeText.textContent = '最適配置を探索中...';
+            el.progressContainer.classList.remove('hidden');
+            el.progressBar.style.width = '0%';
+
+            // 初期状態の準備
+            let currentGrid = new Uint8Array(totalCells);
+            if (keepCurrent) {
+                currentGrid.set(state.grid);
+            } else {
+                // ランダムな初期配置を生成（適度に燃料と冷却剤を混ぜる）
+                for (let i = 0; i < totalCells; i++) {
+                    const r = Math.random();
+                    if (r < 0.35) currentGrid[i] = BLOCK.FUEL;
+                    else if (r < 0.70) currentGrid[i] = BLOCK.COOLANT;
+                    else if (r < 0.90) currentGrid[i] = BLOCK.GRAPHITE;
+                    else currentGrid[i] = BLOCK.AIR;
+                }
+            }
+
+            /**
+             * 目的関数（スコア算出）
+             * 冷却率 > 1.0 の場合は強力なペナルティを与え、安全な領域へ誘導する
+             */
+            function calcScore(res) {
+                if (res.isMeltdown) {
+                    // 超過分に応じたペナルティ（まずはメルトダウン解消を最優先させる）
+                    const excess = res.totalPower - res.totalCooling;
+                    return -100000 - (excess * 500);
+                }
+                if (res.fuelCount === 0) return -50000;
+
+                if (goal === 'max_power') {
+                    // 総火力 P の最大化（同点ならグラファイト/冷却剤が無駄に少なく効率が良い方を優先）
+                    return res.totalPower * 1000 + res.efficiency * 10 - (res.totalCoolant - res.activeCoolant) * 5;
+                } else if (goal === 'fuel_efficiency') {
+                    // 1燃料あたりの火力効率 (P/f) の最大化 ＋ 一定の総火力も確保
+                    return res.efficiency * 5000 + res.totalPower * 50 - (res.totalCoolant - res.activeCoolant) * 10;
+                } else {
+                    // バランス型（総火力と効率の両立）
+                    return res.totalPower * 600 + res.efficiency * 2500 - (res.totalCoolant - res.activeCoolant) * 10;
+                }
+            }
+
+            let currentEval = evaluateReactor(currentGrid, dimX, dimY, dimZ);
+            let currentScore = calcScore(currentEval);
+
+            let bestGrid = new Uint8Array(currentGrid);
+            let bestScore = currentScore;
+            let bestEval = currentEval;
+
+            let step = 0;
+            const chunkSize = 1500; // 1フレームあたりのイテレーション数
+            const startTemp = 500.0;
+            const endTemp = 0.1;
+
+            function processChunk() {
+                const endStep = Math.min(step + chunkSize, totalIterations);
+
+                for (; step < endStep; step++) {
+                    const progress = step / totalIterations;
+                    // 指数冷却スケジュール
+                    const temp = startTemp * Math.pow(endTemp / startTemp, progress);
+
+                    // 近傍操作の選択（85%: 1マス変更、15%: 2マス入れ替え）
+                    if (Math.random() < 0.85) {
+                        const idx = (Math.random() * totalCells) | 0;
+                        const oldVal = currentGrid[idx];
+                        // 異なるブロック種別をランダム選択
+                        let newVal = (Math.random() * 4) | 0;
+                        if (newVal === oldVal) newVal = (oldVal + 1) % 4;
+
+                        currentGrid[idx] = newVal;
+                        const nextEval = evaluateReactor(currentGrid, dimX, dimY, dimZ);
+                        const nextScore = calcScore(nextEval);
+                        const delta = nextScore - currentScore;
+
+                        if (delta > 0 || Math.exp(delta / temp) > Math.random()) {
+                            currentScore = nextScore;
+                            if (!nextEval.isMeltdown && nextScore > bestScore) {
+                                bestScore = nextScore;
+                                bestGrid.set(currentGrid);
+                                bestEval = nextEval;
+                            }
+                        } else {
+                            // 元に戻す
+                            currentGrid[idx] = oldVal;
+                        }
+                    } else {
+                        // 2マスのスワップ操作（構造の微調整に有効）
+                        const idx1 = (Math.random() * totalCells) | 0;
+                        const idx2 = (Math.random() * totalCells) | 0;
+                        if (idx1 === idx2 || currentGrid[idx1] === currentGrid[idx2]) continue;
+
+                        const val1 = currentGrid[idx1];
+                        const val2 = currentGrid[idx2];
+                        currentGrid[idx1] = val2;
+                        currentGrid[idx2] = val1;
+
+                        const nextEval = evaluateReactor(currentGrid, dimX, dimY, dimZ);
+                        const nextScore = calcScore(nextEval);
+                        const delta = nextScore - currentScore;
+
+                        if (delta > 0 || Math.exp(delta / temp) > Math.random()) {
+                            currentScore = nextScore;
+                            if (!nextEval.isMeltdown && nextScore > bestScore) {
+                                bestScore = nextScore;
+                                bestGrid.set(currentGrid);
+                                bestEval = nextEval;
+                            }
+                        } else {
+                            currentGrid[idx1] = val1;
+                            currentGrid[idx2] = val2;
+                        }
+                    }
+                }
+
+                // プログレスバー更新
+                const pct = Math.round((step / totalIterations) * 100);
+                el.progressBar.style.width = `${pct}%`;
+                el.progressText.textContent = `探索中... ${pct}% (現在の最高発電量: ${bestEval.isMeltdown ? 0 : bestEval.powerGen.toLocaleString()})`;
+
+                if (step < totalIterations) {
+                    requestAnimationFrame(processChunk);
+                } else {
+                    // 探索完了処理
+                    if (!bestEval.isMeltdown) {
+                        state.grid.set(bestGrid);
+                        showToast(`最適配置が見つかりました！(発電量: ${bestEval.powerGen.toLocaleString()})`);
+                    } else {
+                        state.grid.set(currentGrid);
+                        showToast('安全な配置が見つかりませんでした。試行回数を増やして再試行してください。', true);
+                    }
+
+                    state.isOptimizing = false;
+                    el.btnOptimize.disabled = false;
+                    el.btnOptimize.classList.remove('opacity-70', 'cursor-not-allowed');
+                    el.btnOptimizeText.textContent = '最適配置を探索する';
+                    setTimeout(() => {
+                        el.progressContainer.classList.add('hidden');
+                    }, 1200);
+
+                    updateUI();
+                }
+            }
+
+            requestAnimationFrame(processChunk);
+        }
+
+        /**
+         * 画面全体のUIとグリッド描画の更新
+         */
+        function updateUI() {
+            const evalRes = evaluateReactor(state.grid, state.dimX, state.dimY, state.dimZ);
+
+            // 数値ステータスの更新
+            el.statPowerGen.textContent = evalRes.powerGen.toLocaleString();
+            el.statTotalP.textContent = evalRes.totalPower.toLocaleString();
+            
+            el.statCoolingRatio.textContent = evalRes.coolingRatio === Infinity ? '∞' : evalRes.coolingRatio.toFixed(2);
+            el.statTotalC.textContent = evalRes.totalCooling.toLocaleString();
+
+            el.statWaterReq.textContent = evalRes.waterReq.toFixed(1);
+            el.statActiveCoolant.textContent = evalRes.activeCoolant;
+            el.statTotalCoolant.textContent = evalRes.totalCoolant;
+
+            el.statFuelReq.textContent = evalRes.fuelReq.toFixed(1);
+            el.statFuelCount.textContent = evalRes.fuelCount;
+            el.statEfficiency.textContent = evalRes.efficiency.toFixed(2);
+
+            // カウント内訳
+            el.countFuel.textContent = evalRes.fuelCount;
+            el.countGraphite.textContent = evalRes.graphiteCount;
+            el.countCoolant.textContent = evalRes.totalCoolant;
+            el.countAir.textContent = evalRes.airCount;
+            el.countTotal.textContent = state.dimX * state.dimY * state.dimZ;
+
+            // メルトダウン警告の表示制御
+            if (evalRes.isMeltdown) {
+                el.meltdownAlert.classList.remove('hidden');
+                el.cardCoolingRatio.classList.add('border-rose-500', 'bg-rose-950/40');
+                el.statCoolingRatio.classList.remove('text-cyan-400');
+                el.statCoolingRatio.classList.add('text-rose-500');
+            } else {
+                el.meltdownAlert.classList.add('hidden');
+                el.cardCoolingRatio.classList.remove('border-rose-500', 'bg-rose-950/40');
+                el.statCoolingRatio.classList.remove('text-rose-500');
+                el.statCoolingRatio.classList.add('text-cyan-400');
+            }
+
+            // レイヤーナビゲーションの表示制御
+            el.currentLayerDisplay.textContent = state.currentLayer + 1;
+            el.maxLayerDisplay.textContent = state.dimY;
+            el.btnPrevLayer.disabled = state.currentLayer <= 0;
+            el.btnNextLayer.disabled = state.currentLayer >= state.dimY - 1;
+            el.btnCopyFromBelow.disabled = state.currentLayer <= 0;
+            el.btnCopyFromBelow.style.opacity = state.currentLayer <= 0 ? '0.4' : '1';
+
+            if (state.viewAllLayers) {
+                el.singleLayerNav.classList.add('hidden');
+                el.layerActions.classList.add('hidden');
+                el.viewModeText.textContent = '単一レイヤー編集に戻る';
+                renderAllLayers(evalRes.cellDetails);
+            } else {
+                el.singleLayerNav.classList.remove('hidden');
+                el.layerActions.classList.remove('hidden');
+                el.viewModeText.textContent = '全レイヤー一覧表示';
+                renderSingleLayer(state.currentLayer, evalRes.cellDetails);
+            }
+        }
+
+        /**
+         * 単一レイヤーのインタラクティブグリッド描画
+         */
+        function renderSingleLayer(layerY, cellDetails) {
+            el.gridContainer.innerHTML = '';
+
+            // レスポンシブなセルサイズ計算
+            const maxDim = Math.max(state.dimX, state.dimZ);
+            let cellSizeClass = 'w-11 h-11 sm:w-14 sm:h-14 text-sm';
+            if (maxDim >= 9) cellSizeClass = 'w-7 h-7 sm:w-10 sm:h-10 text-xs';
+            else if (maxDim >= 7) cellSizeClass = 'w-9 h-9 sm:w-12 sm:h-12 text-xs';
+
+            const wrapper = document.createElement('div');
+            wrapper.className = 'inline-grid gap-1.5 p-3 bg-slate-900/90 rounded-2xl border border-slate-700/80 shadow-inner';
+            wrapper.style.gridTemplateColumns = `repeat(${state.dimX}, minmax(0, 1fr))`;
+
+            for (let z = 0; z < state.dimZ; z++) {
+                for (let x = 0; x < state.dimX; x++) {
+                    const idx = getIndex(x, layerY, z);
+                    const type = state.grid[idx];
+                    const detail = cellDetails[idx];
+
+                    const cell = createCellElement(idx, type, detail, cellSizeClass, true);
+                    wrapper.appendChild(cell);
+                }
+            }
+
+            el.gridContainer.appendChild(wrapper);
+        }
+
+        /**
+         * 全レイヤー一覧表示の描画
+         */
+        function renderAllLayers(cellDetails) {
+            el.gridContainer.innerHTML = '';
+
+            const gridWrap = document.createElement('div');
+            gridWrap.className = 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 w-full';
+
+            const maxDim = Math.max(state.dimX, state.dimZ);
+            let cellSizeClass = 'w-7 h-7 text-[10px]';
+            if (maxDim >= 8) cellSizeClass = 'w-5 h-5 text-[9px]';
+
+            for (let y = 0; y < state.dimY; y++) {
+                const layerCard = document.createElement('div');
+                layerCard.className = 'bg-slate-900/90 border border-slate-700/80 rounded-xl p-3 flex flex-col items-center';
+
+                const header = document.createElement('div');
+                header.className = 'w-full flex justify-between items-center mb-2 px-1';
+                header.innerHTML = `
+                    <span class="text-xs font-bold text-cyan-400">Layer ${y + 1} (Y=${y + 1})</span>
+                    <button class="text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-0.5 rounded transition">この層を拡大編集</button>
+                `;
+                header.querySelector('button').addEventListener('click', () => {
+                    state.currentLayer = y;
+                    state.viewAllLayers = false;
+                    updateUI();
+                });
+
+                const miniGrid = document.createElement('div');
+                miniGrid.className = 'inline-grid gap-1';
+                miniGrid.style.gridTemplateColumns = `repeat(${state.dimX}, minmax(0, 1fr))`;
+
+                for (let z = 0; z < state.dimZ; z++) {
+                    for (let x = 0; x < state.dimX; x++) {
+                        const idx = getIndex(x, y, z);
+                        const type = state.grid[idx];
+                        const detail = cellDetails[idx];
+
+                        const cell = createCellElement(idx, type, detail, cellSizeClass, true);
+                        miniGrid.appendChild(cell);
+                    }
+                }
+
+                layerCard.appendChild(header);
+                layerCard.appendChild(miniGrid);
+                gridWrap.appendChild(layerCard);
+            }
+
+            el.gridContainer.appendChild(gridWrap);
+        }
+
+        /**
+         * 1マスのDOM要素を生成
+         */
+        function createCellElement(idx, type, detail, sizeClass, interactive) {
+            const cell = document.createElement('div');
+            cell.className = `block-cell ${sizeClass} rounded-lg flex items-center justify-center font-bold cursor-pointer relative`;
+
+            if (type === BLOCK.AIR) {
+                cell.classList.add('type-air');
+                cell.title = '空気 (空白)';
+            } else if (type === BLOCK.GRAPHITE) {
+                cell.classList.add('type-graphite');
+                cell.title = 'グラファイト (隣接燃料の火力 +1)';
+            } else if (type === BLOCK.FUEL) {
+                cell.classList.add('type-fuel', 'text-white');
+                cell.textContent = `+${detail}`;
+                cell.title = `燃料 (発生火力: +${detail})`;
+            } else if (type === BLOCK.COOLANT) {
+                cell.classList.add('type-coolant');
+                if (detail === 0) {
+                    cell.classList.add('coolant-inactive');
+                    cell.title = '無効な冷却剤 (燃料に隣接していないため冷却力 +0)';
+                } else {
+                    cell.title = '有効冷却剤 (冷却力 +4)';
+                }
+            }
+
+            if (interactive) {
+                // 左クリック・タッチ開始で配置
+                cell.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    state.isMouseDown = true;
+                    state.isRightClick = (e.button === 2);
+                    paintCell(idx);
+                });
+
+                // ドラッグ中の連続配置
+                cell.addEventListener('mouseenter', () => {
+                    if (state.isMouseDown) {
+                        paintCell(idx);
+                    }
+                });
+
+                // タッチデバイス対応
+                cell.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    state.isRightClick = false;
+                    paintCell(idx);
+                }, { passive: false });
+
+                // 右クリックメニュー抑制
+                cell.addEventListener('contextmenu', (e) => e.preventDefault());
+            }
+
+            return cell;
+        }
+
+        /**
+         * セルにブラシを適用
+         */
+        function paintCell(idx) {
+            const targetBlock = state.isRightClick ? BLOCK.AIR : state.selectedBrush;
+            if (state.grid[idx] !== targetBlock) {
+                state.grid[idx] = targetBlock;
+                updateUI();
+            }
+        }
+
+        // マウスボタン解放監視
+        window.addEventListener('mouseup', () => {
+            state.isMouseDown = false;
+            state.isRightClick = false;
+        });
+
+        /**
+         * トースト通知表示
+         */
+        let toastTimer = null;
+        function showToast(msg, isError = false) {
+            el.toastMessage.textContent = msg;
+            const icon = document.getElementById('toastIcon');
+            icon.className = `w-2.5 h-2.5 rounded-full ${isError ? 'bg-rose-500' : 'bg-green-400'}`;
+            
+            el.toast.classList.remove('translate-y-20', 'opacity-0');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => {
+                el.toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3500);
+        }
+
+        /**
+         * イベントリスナー登録
+         */
+        function setupEvents() {
+            // サイズ変更
+            el.btnResize.addEventListener('click', () => {
+                initGrid(el.inputX.value, el.inputY.value, el.inputZ.value);
+                showToast(`リアクターサイズを ${state.dimX}×${state.dimY}×${state.dimZ} に設定しました`);
+            });
+
+            // 全消去
+            el.btnClear.addEventListener('click', () => {
+                state.grid.fill(BLOCK.AIR);
+                updateUI();
+                showToast('すべてのブロックを空気に戻しました');
+            });
+
+            // 試行回数スライダーラベル更新
+            el.optIterations.addEventListener('input', (e) => {
+                el.iterLabel.textContent = `${parseInt(e.target.value).toLocaleString()} 回`;
+            });
+
+            // 最適化実行
+            el.btnOptimize.addEventListener('click', runOptimization);
+
+            // ブラシ選択
+            document.querySelectorAll('.brush-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.brush-btn').forEach(b => b.classList.remove('ring-2', 'ring-white'));
+                    btn.classList.add('ring-2', 'ring-white');
+                    state.selectedBrush = parseInt(btn.dataset.brush);
+                });
+            });
+
+            // レイヤー移動
+            el.btnPrevLayer.addEventListener('click', () => {
+                if (state.currentLayer > 0) {
+                    state.currentLayer--;
+                    updateUI();
+                }
+            });
+            el.btnNextLayer.addEventListener('click', () => {
+                if (state.currentLayer < state.dimY - 1) {
+                    state.currentLayer++;
+                    updateUI();
+                }
+            });
+
+            // 表示モード切替
+            el.btnToggleView.addEventListener('click', () => {
+                state.viewAllLayers = !state.viewAllLayers;
+                updateUI();
+            });
+
+            // 下の層をコピー
+            el.btnCopyFromBelow.addEventListener('click', () => {
+                if (state.currentLayer <= 0) return;
+                const layerSize = state.dimX * state.dimZ;
+                const srcStart = (state.currentLayer - 1) * layerSize;
+                const dstStart = state.currentLayer * layerSize;
+                for (let i = 0; i < layerSize; i++) {
+                    state.grid[dstStart + i] = state.grid[srcStart + i];
+                }
+                updateUI();
+                showToast(`レイヤー ${state.currentLayer} の配置をコピーしました`);
+            });
+
+            // この層を全階層に適用
+            el.btnApplyToAllLayers.addEventListener('click', () => {
+                const layerSize = state.dimX * state.dimZ;
+                const srcStart = state.currentLayer * layerSize;
+                for (let y = 0; y < state.dimY; y++) {
+                    if (y === state.currentLayer) continue;
+                    const dstStart = y * layerSize;
+                    for (let i = 0; i < layerSize; i++) {
+                        state.grid[dstStart + i] = state.grid[srcStart + i];
+                    }
+                }
+                updateUI();
+                showToast(`レイヤー ${state.currentLayer + 1} の配置を全階層に適用しました`);
+            });
+
+            // 仕様モーダル
+            el.btnRules.addEventListener('click', () => {
+                el.modalRules.classList.remove('hidden');
+                el.modalRules.classList.add('flex');
+            });
+            const hideRules = () => {
+                el.modalRules.classList.add('hidden');
+                el.modalRules.classList.remove('flex');
+            };
+            el.closeRules.addEventListener('click', hideRules);
+            el.closeRulesBtn.addEventListener('click', hideRules);
+
+            // エクスポート (execCommandを使用)
+            el.btnExport.addEventListener('click', () => {
+                const payload = JSON.stringify({
+                    x: state.dimX,
+                    y: state.dimY,
+                    z: state.dimZ,
+                    data: Array.from(state.grid).join('')
+                });
+                const tempInput = document.createElement('textarea');
+                tempInput.value = payload;
+                document.body.appendChild(tempInput);
+                tempInput.select();
+                try {
+                    document.execCommand('copy');
+                    showToast('配置コードをクリップボードにコピーしました！');
+                } catch (err) {
+                    showToast('コピーに失敗しました', true);
+                }
+                document.body.removeChild(tempInput);
+            });
+
+            // インポートモーダル
+            el.btnImportOpen.addEventListener('click', () => {
+                el.importTextarea.value = '';
+                el.modalImport.classList.remove('hidden');
+                el.modalImport.classList.add('flex');
+            });
+            const hideImport = () => {
+                el.modalImport.classList.add('hidden');
+                el.modalImport.classList.remove('flex');
+            };
+            el.closeImportBtn.addEventListener('click', hideImport);
+
+            el.execImportBtn.addEventListener('click', () => {
+                try {
+                    const parsed = JSON.parse(el.importTextarea.value.trim());
+                    if (!parsed.x || !parsed.y || !parsed.z || typeof parsed.data !== 'string') {
+                        throw new Error('不正なフォーマットです');
+                    }
+                    const x = Math.max(2, Math.min(10, parseInt(parsed.x)));
+                    const y = Math.max(2, Math.min(10, parseInt(parsed.y)));
+                    const z = Math.max(2, Math.min(10, parseInt(parsed.z)));
+                    if (parsed.data.length !== x * y * z) {
+                        throw new Error('データ長がサイズと一致しません');
+                    }
+
+                    initGrid(x, y, z);
+                    for (let i = 0; i < parsed.data.length; i++) {
+                        const val = parseInt(parsed.data[i]);
+                        state.grid[i] = (val >= 0 && val <= 3) ? val : 0;
+                    }
+                    updateUI();
+                    hideImport();
+                    showToast('配置データを読み込みました！');
+                } catch (e) {
+                    showToast('読み込み失敗: コードの形式が正しくありません', true);
+                }
+            });
+        }
+
+        // 初期化実行
+        window.addEventListener('DOMContentLoaded', () => {
+            setupEvents();
+            initGrid(5, 4, 5);
+            // 初回起動時にサンプルとして自動探索を1回走らせる
+            el.optIterations.value = 15000;
+            el.iterLabel.textContent = '15,000 回';
+            runOptimization();
+        });
+    </script>
+</body>
+</html>
